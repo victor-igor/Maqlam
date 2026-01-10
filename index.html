@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Campos Joias AI Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            // Brand Colors (Ouro Campos)
+            primary: "#C5A059",
+            "primary-hover": "#B08D45",
+            secondary: "#B08D45",
+            accent: "#10B981",
+
+            "background-light": "#F4F6F8",
+            "background-dark": "#121212",
+
+            "card-light": "#FFFFFF",
+            "card-dark": "#1E1E1E",
+
+            "border-light": "#E0E0E0",
+            "border-dark": "#333333",
+
+            "input-light": "#FFFFFF",
+            "input-dark": "#2C2C2C",
+
+            "muted-light": "#F4F6F8",
+            "muted-dark": "#252525",
+
+            gray: {
+              50: "#F9FAFB",
+              100: "#F4F6F8",
+              200: "#E0E0E0",
+              300: "#D1D5DB",
+              400: "#A1A1A1",
+              500: "#666666",
+              600: "#4B5563",
+              700: "#333333",
+              800: "#1E1E1E",
+              900: "#1A1A1A",
+              950: "#121212",
+            },
+            zinc: {
+              800: "#333333",
+              900: "#1E1E1E",
+              950: "#121212",
+            }
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            display: ["Inter", "sans-serif"],
+          },
+          borderRadius: {
+            DEFAULT: "0.5rem",
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #333;
+      border-radius: 3px;
+    }
+
+    .dark ::-webkit-scrollbar-thumb {
+      background: #444;
+    }
+  </style>
+
+</head>
+
+<body
+  class="bg-background-light dark:bg-background-dark text-gray-900 dark:text-[#EDEDED] transition-colors duration-300">
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+
+</html>
