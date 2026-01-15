@@ -10,4 +10,4 @@ console.log('URL:', supabaseUrl);
 console.log('Key (Start):', supabaseAnonKey?.substring(0, 15) + '...');
 console.log('Key (Length):', supabaseAnonKey?.length);
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl?.trim(), supabaseAnonKey?.trim());
