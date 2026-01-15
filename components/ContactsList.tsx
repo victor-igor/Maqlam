@@ -1,8 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
-import { Search, Pencil, ChevronLeft, ChevronRight, Building2, UserPlus } from 'lucide-react';
-import { listContacts, Contact } from '../lib/contacts';
+import { Search, Pencil, ChevronLeft, ChevronRight, Building2, Trash2, Eye } from 'lucide-react';
+import { listContacts, Contact, deleteContact, updateContact } from '../lib/contacts';
 import { useToast } from '../contexts/ToastContext';
+import { usePermissions } from '../hooks/usePermissions';
+import { DeleteConfirmationModal } from './DeleteConfirmationModal';
+import { EditContactModal } from './EditContactModal';
 
 interface ContactsListProps {
   onEdit?: (contactId: string) => void;
@@ -12,7 +14,13 @@ export const ContactsList: React.FC<ContactsListProps> = ({ onEdit }) => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const { error: toastError } = useToast();
+  const { error: toastError, success: toastSuccess } = useToast();
+  const { isAdminOrGestor } = usePermissions();
+
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [contactToDelete, setContactToDelete] = useState<{ id: string, name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [editingContact, setEditingContact] = useState<Contact | null>(null);
 
   useEffect(() => {
     loadContacts();
@@ -29,6 +37,47 @@ export const ContactsList: React.FC<ContactsListProps> = ({ onEdit }) => {
       toastError('Erro ao carregar contatos: ' + (err.message || 'Erro desconhecido'));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = (contactId: string, contactName: string) => {
+    if (!isAdminOrGestor) {
+      toastError('Você não tem permissão para excluir contatos.');
+      return;
+    }
+    setContactToDelete({ id: contactId, name: contactName });
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!contactToDelete) return;
+
+    try {
+      setIsDeleting(true);
+      await deleteContact(contactToDelete.id);
+      toastSuccess('Contato excluído com sucesso!');
+      loadContacts();
+      setDeleteModalOpen(false);
+      setContactToDelete(null);
+    } catch (error: any) {
+      console.error('Error deleting contact:', error);
+      toastError('Erro ao excluir contato: ' + (error.message || 'Erro desconhecido'));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleSaveContact = async (updatedData: Partial<Contact>) => {
+    if (!editingContact) return;
+
+    try {
+      await updateContact(editingContact.id, updatedData);
+      toastSuccess('Contato atualizado com sucesso!');
+      loadContacts();
+      setEditingContact(null);
+    } catch (error: any) {
+      console.error('Error updating contact:', error);
+      toastError('Erro ao atualizar contato: ' + (error.message || 'Erro desconhecido'));
     }
   };
 
@@ -76,7 +125,7 @@ export const ContactsList: React.FC<ContactsListProps> = ({ onEdit }) => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button className="flex-1 sm:flex-none px-4 py-2.5 rounded-lg bg-primary/10 text-primary text-sm font-bold whitespace-nowrap hover:bg-primary/20 transition-colors text-center">
+          <button className="flex-1 sm:flex-none px-4 py-2.5 rounded-lg bg-primary text-white text-sm font-bold whitespace-nowrap hover:bg-primary/90 transition-colors text-center shadow-sm">
             Todos
           </button>
           <button className="flex-1 sm:flex-none px-4 py-2.5 rounded-lg bg-white dark:bg-card-dark text-gray-600 dark:text-gray-300 border border-border-light dark:border-border-dark hover:bg-gray-50 dark:hover:bg-muted-dark text-sm font-medium transition-colors whitespace-nowrap shadow-sm text-center">
@@ -120,7 +169,14 @@ export const ContactsList: React.FC<ContactsListProps> = ({ onEdit }) => {
               ) : (
                 filteredContacts.map((person) => (
                   <tr key={person.id} className="hover:bg-gray-50 dark:hover:bg-muted-dark/30 transition-colors">
-                    <td className="px-6 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{person.nome_completo}</td>
+                    <td className="px-6 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                      <button
+                        onClick={() => onEdit && onEdit(person.id)}
+                        className="hover:underline hover:text-primary text-left"
+                      >
+                        {person.nome_completo}
+                      </button>
+                    </td>
                     <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{person.telefone}</td>
                     <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
                       <Building2 className="w-4 h-4 text-gray-400" />
@@ -132,12 +188,31 @@ export const ContactsList: React.FC<ContactsListProps> = ({ onEdit }) => {
                       </span>
                     </td>
                     <td className="px-6 py-3 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => onEdit && onEdit(person.id)}
-                        className="text-gray-400 hover:text-primary dark:text-gray-500 dark:hover:text-primary transition-colors p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-muted-dark"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => onEdit && onEdit(person.id)}
+                          className="text-gray-400 hover:text-primary dark:text-gray-500 dark:hover:text-primary transition-colors p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-muted-dark"
+                          title="Visualizar perfil"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setEditingContact(person)}
+                          className="text-gray-400 hover:text-primary dark:text-gray-500 dark:hover:text-primary transition-colors p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-muted-dark"
+                          title="Editar contato"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        {isAdminOrGestor && (
+                          <button
+                            onClick={() => handleDelete(person.id, person.nome_completo)}
+                            className="text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-500 transition-colors p-1.5 rounded-full hover:bg-red-50 dark:hover:bg-red-900/10"
+                            title="Excluir contato"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -173,7 +248,29 @@ export const ContactsList: React.FC<ContactsListProps> = ({ onEdit }) => {
             </div>
           </div>
         </div>
+
       </div>
-    </div>
+
+      <DeleteConfirmationModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setContactToDelete(null);
+        }}
+        onConfirm={confirmDelete}
+        title="Excluir Contato"
+        message={`Tem certeza que deseja excluir o contato "${contactToDelete?.name}"? Esta ação não pode ser desfeita.`}
+        isLoading={isDeleting}
+      />
+
+      {editingContact && (
+        <EditContactModal
+          isOpen={!!editingContact}
+          onClose={() => setEditingContact(null)}
+          onSave={handleSaveContact}
+          initialData={editingContact}
+        />
+      )}
+    </div >
   );
 };

@@ -7,10 +7,23 @@ import {
     Plus,
     Trash2,
     X,
-    ArrowLeft
+    ArrowLeft,
+    Globe,
+    Shield,
+    CheckCircle2
 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { createCampaign, updateCampaign, getCampaign, CampaignType, RecurrenceRule, MessageType } from '../lib/campaigns';
+import {
+    createCampaign,
+    updateCampaign,
+    getCampaign,
+    CampaignType,
+    RecurrenceRule,
+    MessageType,
+    CampaignProvider,
+    WhatsAppTemplate,
+    listMessageTemplates
+} from '../lib/campaigns';
 import { getTags, Tag } from '../lib/contacts';
 import { useToast } from '../contexts/ToastContext';
 import { supabase } from '../lib/supabase';
@@ -24,15 +37,26 @@ export const CreateCampaign: React.FC = () => {
     const [campaignName, setCampaignName] = useState('');
     const [audience, setAudience] = useState('all');
     const [availableTags, setAvailableTags] = useState<Tag[]>([]);
+
+    // Provider & Template State
+    const [provider, setProvider] = useState<CampaignProvider>('unofficial');
+    const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
+    const [selectedTemplate, setSelectedTemplate] = useState<WhatsAppTemplate | null>(null);
+    const [loadingTemplates, setLoadingTemplates] = useState(false);
+
+    // Message State
     const [messageType, setMessageType] = useState<MessageType>('text');
     const [messageText, setMessageText] = useState('');
     const [messageVariations, setMessageVariations] = useState<string[]>([]);
     const [file, setFile] = useState<File | null>(null);
+    const [mediaUrl, setMediaUrl] = useState<string | undefined>(undefined);
+
+    // Schedule State
     const [campaignType, setCampaignType] = useState<CampaignType>('instant');
     const [scheduleTime, setScheduleTime] = useState('');
     const [recurrenceDays, setRecurrenceDays] = useState<number[]>([]);
     const [recurrenceTimes, setRecurrenceTimes] = useState<string[]>(['09:00']);
-    const [dailyLimit, setDailyLimit] = useState<number | ''>(''); // Throttling
+    const [dailyLimit, setDailyLimit] = useState<number | ''>('');
 
     // File Input Ref
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -47,9 +71,10 @@ export const CreateCampaign: React.FC = () => {
         }
     }, [id]);
 
-    // Load tags
+    // Load tags and templates
     useEffect(() => {
         loadTags();
+        loadTemplates();
     }, []);
 
     const loadTags = async () => {
@@ -62,17 +87,38 @@ export const CreateCampaign: React.FC = () => {
         }
     };
 
+    const loadTemplates = async () => {
+        try {
+            setLoadingTemplates(true);
+            const data = await listMessageTemplates();
+            setTemplates(data);
+        } catch (error) {
+            console.error('Error loading templates:', error);
+            // Don't show error toast immediately as user might not have configured credentials yet
+        } finally {
+            setLoadingTemplates(false);
+        }
+    };
+
     const loadCampaign = async (campaignId: string) => {
         try {
             const campaign = await getCampaign(campaignId);
             setCampaignName(campaign.name);
             setCampaignType(campaign.type);
+            setProvider(campaign.provider || 'unofficial');
             setMessageType(campaign.message_type);
+            setMediaUrl(campaign.media_url);
 
-            // Handle variations
-            if (campaign.message_variations && campaign.message_variations.length > 0) {
-                setMessageText(campaign.message_variations[0]);
-                setMessageVariations(campaign.message_variations.slice(1));
+            // Handle provider specific data
+            if (campaign.provider === 'official' && campaign.template_name) {
+                // We need to wait for templates to load or find it in the already loaded list
+                // For now, let's just set the text. In a real scenario we'd match the template object.
+                setMessageText(campaign.template_text || '');
+            } else {
+                if (campaign.message_variations && campaign.message_variations.length > 0) {
+                    setMessageText(campaign.message_variations[0]);
+                    setMessageVariations(campaign.message_variations.slice(1));
+                }
             }
 
             // Handle recurrence
@@ -91,9 +137,10 @@ export const CreateCampaign: React.FC = () => {
                 setDailyLimit(campaign.daily_limit);
             }
 
-            // Handle media (we can't set the File object, but we can show the URL if needed, 
-            // though for now we just keep the existing media unless a new file is selected)
-            // Ideally we would show a preview of the existing mediaUrl here.
+            // Handle Audience
+            if (campaign.audience_filter?.type === 'tag') {
+                setAudience(campaign.audience_filter.value || 'all');
+            }
 
         } catch (err: any) {
             console.error('Error loading campaign:', err);
@@ -114,6 +161,22 @@ export const CreateCampaign: React.FC = () => {
         }
     }, [messageVariations]);
 
+    const handleTemplateSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const templateName = e.target.value;
+        const template = templates.find(t => t.name === templateName);
+
+        setSelectedTemplate(template || null);
+        if (template) {
+            // Find the body component to get the text
+            const bodyComponent = template.components.find(c => c.type === 'BODY');
+            if (bodyComponent) {
+                setMessageText(bodyComponent.text || '');
+            }
+        } else {
+            setMessageText('');
+        }
+    };
+
     const handleAddVariation = () => {
         setMessageVariations([...messageVariations, '']);
     };
@@ -132,9 +195,26 @@ export const CreateCampaign: React.FC = () => {
 
     const handleCreateCampaign = async () => {
         try {
-            if (!campaignName || !messageText) {
-                toastError('Preencha todos os campos obrigatórios');
+            if (!campaignName) {
+                toastError('Nome da campanha é obrigatório');
                 return;
+            }
+
+            // Validation based on provider
+            if (provider === 'official') {
+                if (!selectedTemplate && !id) { // Allow editing without re-selecting if purely updating schedule
+                    // Actually, for editing, we might not have selectedTemplate set if we just loaded text. 
+                    // Enhancing loadCampaign to find template would be better, but for now enforce text presence.
+                    if (!messageText) {
+                        toastError('Selecione um template para envio oficial');
+                        return;
+                    }
+                }
+            } else {
+                if (!messageText) {
+                    toastError('A mensagem principal é obrigatória');
+                    return;
+                }
             }
 
             if (campaignType === 'scheduled' && !scheduleTime) {
@@ -153,12 +233,13 @@ export const CreateCampaign: React.FC = () => {
                 }
             }
 
-            if (messageType !== 'text' && !file) {
+            if (provider === 'unofficial' && messageType !== 'text' && !file && !mediaUrl) {
                 toastError('Selecione um arquivo de mídia');
                 return;
             }
 
-            let mediaUrl = undefined;
+            // Upload File if present
+            let finalMediaUrl = mediaUrl;
             if (file) {
                 const fileExt = file.name.split('.').pop();
                 const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
@@ -168,49 +249,48 @@ export const CreateCampaign: React.FC = () => {
                     .from('campaign-media')
                     .upload(filePath, file);
 
-                if (uploadError) {
-                    throw uploadError;
-                }
+                if (uploadError) throw uploadError;
 
                 const { data: { publicUrl } } = supabase.storage
                     .from('campaign-media')
                     .getPublicUrl(filePath);
 
-                mediaUrl = publicUrl;
+                finalMediaUrl = publicUrl;
             }
 
             const recurrenceRule: RecurrenceRule | undefined = campaignType === 'recurring'
                 ? { days: recurrenceDays, times: recurrenceTimes }
                 : undefined;
 
-            // Combine main message and variations into a single array for the 'message_variations' column
-            const allVariations = [messageText, ...messageVariations].filter(v => v.trim() !== '');
+            // Combine variations only for unofficial
+            const allVariations = provider === 'unofficial'
+                ? [messageText, ...messageVariations].filter(v => v.trim() !== '')
+                : [messageText];
 
             const campaignData = {
                 name: campaignName,
                 type: campaignType,
+                provider: provider,
                 schedule_time: campaignType === 'scheduled' ? new Date(scheduleTime).toISOString() : undefined,
                 recurrence_rule: recurrenceRule,
                 audience_filter: (audience === 'all'
                     ? { type: 'all' }
                     : { type: 'tag', value: audience }) as { type: 'all' | 'tag' | 'csv'; value?: string },
                 message_type: messageType,
-                media_url: mediaUrl, // This will be undefined if no new file is uploaded, effectively removing media if we don't handle preservation
+                media_url: finalMediaUrl,
                 daily_limit: dailyLimit ? Number(dailyLimit) : undefined,
-                message_variations: allVariations
+                message_variations: allVariations,
+
+                // Template fields for Official Provider
+                template_name: provider === 'official' ? selectedTemplate?.name : undefined,
+                template_language: provider === 'official' ? selectedTemplate?.language : undefined,
+                template_text: provider === 'official' ? messageText : undefined,
             };
 
             if (id) {
-                // Update existing campaign
-                // If no new file uploaded, don't overwrite media_url with undefined
-                if (!file) {
-                    delete campaignData.media_url;
-                }
-
                 await updateCampaign(id, campaignData);
                 success('Campanha atualizada com sucesso!');
             } else {
-                // Create new campaign
                 await createCampaign(campaignData);
                 success('Campanha criada com sucesso!');
             }
@@ -307,9 +387,54 @@ export const CreateCampaign: React.FC = () => {
                     {/* 1. Campaign Details */}
                     <section className="bg-white dark:bg-card-dark rounded-xl p-6 border border-border-light dark:border-border-dark shadow-sm">
                         <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-primary text-black flex items-center justify-center text-xs font-bold">1</div>
+                            <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold">1</div>
                             Detalhes da Campanha
                         </h2>
+
+                        {/* Provider Selection (Hybrid) */}
+                        <div className="mb-6 p-4 bg-gray-50 dark:bg-muted-dark rounded-xl border border-border-light dark:border-border-dark">
+                            <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-3">Provedor de Envio</label>
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => setProvider('unofficial')}
+                                    className={`flex-1 flex items-center gap-3 p-3 rounded-lg border transition-all ${provider === 'unofficial'
+                                        ? 'bg-white dark:bg-blue-900/30 shadow-sm border-primary ring-1 ring-primary'
+                                        : 'bg-transparent border-transparent hover:bg-gray-200 dark:hover:bg-gray-700'
+                                        }`}
+                                >
+                                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${provider === 'unofficial' ? 'border-primary' : 'border-gray-400'}`}>
+                                        {provider === 'unofficial' && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                    </div>
+                                    <div className="text-left">
+                                        <div className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                            <Globe className="w-3.5 h-3.5 text-blue-500" />
+                                            API Não Oficial
+                                        </div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-400">Usa seus números conectados (Gateway)</div>
+                                    </div>
+                                </button>
+
+                                <button
+                                    onClick={() => setProvider('official')}
+                                    className={`flex-1 flex items-center gap-3 p-3 rounded-lg border transition-all ${provider === 'official'
+                                        ? 'bg-white dark:bg-blue-900/30 shadow-sm border-primary ring-1 ring-primary'
+                                        : 'bg-transparent border-transparent hover:bg-gray-200 dark:hover:bg-gray-700'
+                                        }`}
+                                >
+                                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${provider === 'official' ? 'border-primary' : 'border-gray-400'}`}>
+                                        {provider === 'official' && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                    </div>
+                                    <div className="text-left">
+                                        <div className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                            <Shield className="w-3.5 h-3.5 text-green-500" />
+                                            API Oficial (Meta)
+                                        </div>
+                                        <div className="text-xs text-gray-500 dark:text-gray-400">Alta escala, requer templates aprovados</div>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400 mb-2">Nome da Campanha</label>
@@ -317,7 +442,7 @@ export const CreateCampaign: React.FC = () => {
                                     type="text"
                                     value={campaignName}
                                     onChange={(e) => setCampaignName(e.target.value)}
-                                    className="w-full bg-gray-50 dark:bg-input-dark border border-border-light dark:border-border-dark rounded-lg p-3 text-sm focus:ring-2 focus:ring-primary outline-none"
+                                    className="w-full bg-gray-50 dark:bg-input-dark border border-border-light dark:border-border-dark rounded-lg p-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
                                     placeholder="Ex: Promoção Black Friday"
                                 />
                             </div>
@@ -330,7 +455,7 @@ export const CreateCampaign: React.FC = () => {
                                     <select
                                         value={audience}
                                         onChange={(e) => setAudience(e.target.value)}
-                                        className="w-full pl-10 bg-gray-50 dark:bg-input-dark border border-border-light dark:border-border-dark rounded-lg p-3 text-sm focus:ring-2 focus:ring-primary outline-none appearance-none"
+                                        className="w-full pl-10 bg-gray-50 dark:bg-input-dark border border-border-light dark:border-border-dark rounded-lg p-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none appearance-none"
                                     >
                                         <option value="all">Todos os Contatos</option>
                                         {availableTags.map(tag => (
@@ -347,88 +472,131 @@ export const CreateCampaign: React.FC = () => {
                     {/* 2. Content Composer */}
                     <section className="bg-white dark:bg-card-dark rounded-xl p-6 border border-border-light dark:border-border-dark shadow-sm">
                         <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-primary text-black flex items-center justify-center text-xs font-bold">2</div>
+                            <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold">2</div>
                             Conteúdo da Mensagem
                         </h2>
 
-                        {/* Type Selector */}
-                        <div className="flex gap-4 mb-6 border-b border-border-light dark:border-border-dark pb-6">
-                            <button
-                                onClick={() => handleChangeMessageType('text')}
-                                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg border transition-all font-bold text-sm
-                        ${messageType === 'text'
-                                        ? 'bg-primary/10 border-primary text-primary'
-                                        : 'bg-gray-50 dark:bg-muted-dark border-transparent text-gray-500 hover:bg-gray-100 dark:hover:bg-input-dark'
-                                    }`}
-                            >
-                                <Type className="w-4 h-4" />
-                                Apenas Texto
-                            </button>
-                            <button
-                                onClick={() => handleChangeMessageType('image')}
-                                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg border transition-all font-bold text-sm
-                        ${messageType === 'image'
-                                        ? 'bg-primary/10 border-primary text-primary'
-                                        : 'bg-gray-50 dark:bg-muted-dark border-transparent text-gray-500 hover:bg-gray-100 dark:hover:bg-input-dark'
-                                    }`}
-                            >
-                                <ImageIcon className="w-4 h-4" />
-                                Imagem + Texto
-                            </button>
-                            <button
-                                onClick={() => handleChangeMessageType('video')}
-                                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg border transition-all font-bold text-sm
-                        ${messageType === 'video'
-                                        ? 'bg-primary/10 border-primary text-primary'
-                                        : 'bg-gray-50 dark:bg-muted-dark border-transparent text-gray-500 hover:bg-gray-100 dark:hover:bg-input-dark'
-                                    }`}
-                            >
-                                <Video className="w-4 h-4" />
-                                Vídeo + Texto
-                            </button>
-                        </div>
+                        {/* Official Provider: Template Selection */}
+                        {provider === 'official' && (
+                            <div className="mb-6">
+                                <div className="flex justify-between items-center mb-2">
+                                    <label className="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">
+                                        Selecione um Template Aprovado
+                                    </label>
+                                    <button
+                                        onClick={loadTemplates}
+                                        className="text-xs text-primary hover:underline flex items-center gap-1"
+                                        disabled={loadingTemplates}
+                                    >
+                                        {loadingTemplates ? 'Carregando...' : 'Atualizar Templates'}
+                                    </button>
+                                </div>
+                                <select
+                                    value={selectedTemplate?.name || ''}
+                                    onChange={handleTemplateSelect}
+                                    className="w-full bg-gray-50 dark:bg-input-dark border border-border-light dark:border-border-dark rounded-lg p-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
+                                >
+                                    <option value="">-- Selecione um Template --</option>
+                                    {templates.map(tpl => (
+                                        <option key={tpl.id} value={tpl.name}>
+                                            {tpl.name} ({tpl.status}) - {tpl.language}
+                                        </option>
+                                    ))}
+                                </select>
+                                {templates.length === 0 && !loadingTemplates && (
+                                    <p className="text-xs text-red-500 mt-2">
+                                        Nenhum template encontrado. Verifique suas credenciais nas configurações.
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Unofficial Provider: Type Selector */}
+                        {provider === 'unofficial' && (
+                            <div className="flex gap-4 mb-6 border-b border-border-light dark:border-border-dark pb-6">
+                                <button
+                                    onClick={() => handleChangeMessageType('text')}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg border transition-all font-bold text-sm
+                            ${messageType === 'text'
+                                            ? 'bg-primary/10 border-primary text-primary dark:text-blue-300 dark:bg-primary/20'
+                                            : 'bg-gray-50 dark:bg-muted-dark border-transparent text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-input-dark'
+                                        }`}
+                                >
+                                    <Type className="w-4 h-4" />
+                                    Apenas Texto
+                                </button>
+                                <button
+                                    onClick={() => handleChangeMessageType('image')}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg border transition-all font-bold text-sm
+                            ${messageType === 'image'
+                                            ? 'bg-primary/10 border-primary text-primary dark:text-blue-300 dark:bg-primary/20'
+                                            : 'bg-gray-50 dark:bg-muted-dark border-transparent text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-input-dark'
+                                        }`}
+                                >
+                                    <ImageIcon className="w-4 h-4" />
+                                    Imagem + Texto
+                                </button>
+                                <button
+                                    onClick={() => handleChangeMessageType('video')}
+                                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg border transition-all font-bold text-sm
+                            ${messageType === 'video'
+                                            ? 'bg-primary/10 border-primary text-primary dark:text-blue-300 dark:bg-primary/20'
+                                            : 'bg-gray-50 dark:bg-muted-dark border-transparent text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-input-dark'
+                                        }`}
+                                >
+                                    <Video className="w-4 h-4" />
+                                    Vídeo + Texto
+                                </button>
+                            </div>
+                        )}
 
                         <div className="space-y-4">
                             <div>
                                 <div className="flex justify-between items-center mb-2">
-                                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Mensagem Principal (Variação A)</label>
-                                    <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Padrão</span>
+                                    <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Mensagem {provider === 'official' ? '(Template)' : 'Principal'}</label>
+                                    {provider === 'unofficial' && <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Padrão</span>}
                                 </div>
                                 <textarea
                                     value={messageText}
-                                    onChange={(e) => setMessageText(e.target.value)}
-                                    className="w-full h-32 bg-gray-50 dark:bg-input-dark border border-border-light dark:border-border-dark rounded-lg p-4 text-sm focus:ring-2 focus:ring-primary outline-none resize-none"
-                                    placeholder="Digite sua mensagem aqui..."
+                                    onChange={(e) => provider === 'unofficial' && setMessageText(e.target.value)} // Read-only for official if strict
+                                    readOnly={provider === 'official'}
+                                    className={`w-full h-32 bg-gray-50 dark:bg-input-dark border border-border-light dark:border-border-dark rounded-lg p-4 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none resize-none ${provider === 'official' ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                    placeholder={provider === 'official' ? "Texto do template selecionado..." : "Digite sua mensagem aqui..."}
                                 />
                             </div>
 
-                            {/* Variations List */}
-                            {messageVariations.map((variation, index) => (
-                                <div key={index} className="animate-in fade-in slide-in-from-top-2">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Variação {String.fromCharCode(66 + index)}</label>
-                                        <button onClick={() => handleRemoveVariation(index)} className="text-red-500 hover:text-red-700 text-xs flex items-center gap-1">
-                                            <Trash2 className="w-3 h-3" /> Remover
-                                        </button>
-                                    </div>
-                                    <textarea
-                                        value={variation}
-                                        onChange={(e) => handleVariationChange(index, e.target.value)}
-                                        className="w-full h-32 bg-gray-50 dark:bg-input-dark border border-border-light dark:border-border-dark rounded-lg p-4 text-sm focus:ring-2 focus:ring-primary outline-none resize-none"
-                                        placeholder={`Digite a variação ${String.fromCharCode(66 + index)} da mensagem...`}
-                                    />
-                                </div>
-                            ))}
+                            {/* Variations List (Only Unofficial) */}
+                            {provider === 'unofficial' && (
+                                <>
+                                    {messageVariations.map((variation, index) => (
+                                        <div key={index} className="animate-in fade-in slide-in-from-top-2">
+                                            <div className="flex justify-between items-center mb-2">
+                                                <label className="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Variação {String.fromCharCode(66 + index)}</label>
+                                                <button onClick={() => handleRemoveVariation(index)} className="text-red-500 hover:text-red-700 text-xs flex items-center gap-1">
+                                                    <Trash2 className="w-3 h-3" /> Remover
+                                                </button>
+                                            </div>
+                                            <textarea
+                                                value={variation}
+                                                onChange={(e) => handleVariationChange(index, e.target.value)}
+                                                className="w-full h-32 bg-gray-50 dark:bg-input-dark border border-border-light dark:border-border-dark rounded-lg p-4 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none resize-none"
+                                                placeholder={`Digite a variação ${String.fromCharCode(66 + index)} da mensagem...`}
+                                            />
+                                        </div>
+                                    ))}
 
-                            <button
-                                onClick={handleAddVariation}
-                                className="flex items-center gap-2 text-sm font-bold text-primary hover:text-primary/80 transition-colors"
-                            >
-                                <Plus className="w-4 h-4" />
-                                Adicionar Variação de Texto
-                            </button>
+                                    <button
+                                        onClick={handleAddVariation}
+                                        className="flex items-center gap-2 text-sm font-bold text-primary dark:text-blue-400 hover:text-primary/80 dark:hover:text-blue-300 transition-colors"
+                                    >
+                                        <Plus className="w-4 h-4" />
+                                        Adicionar Variação de Texto
+                                    </button>
+                                </>
+                            )}
 
-                            {messageType !== 'text' && (
+                            {/* Media Upload (Only Unofficial for now) */}
+                            {provider === 'unofficial' && messageType !== 'text' && (
                                 <div
                                     className="border-2 border-dashed border-border-light dark:border-border-dark rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-colors mt-4"
                                     onDragOver={(e) => e.preventDefault()}
@@ -442,12 +610,12 @@ export const CreateCampaign: React.FC = () => {
                                         accept={messageType === 'image' ? 'image/*' : 'video/*'}
                                         onChange={handleFileSelect}
                                     />
-                                    {file ? (
+                                    {file || mediaUrl ? (
                                         <div className="relative group">
                                             {messageType === 'image' ? (
-                                                <img src={URL.createObjectURL(file)} alt="Preview" className="h-32 rounded-lg object-cover" />
+                                                <img src={file ? URL.createObjectURL(file) : mediaUrl} alt="Preview" className="h-32 rounded-lg object-cover" />
                                             ) : (
-                                                <video src={URL.createObjectURL(file)} className="h-32 rounded-lg" controls />
+                                                <video src={file ? URL.createObjectURL(file) : mediaUrl} className="h-32 rounded-lg" controls />
                                             )}
                                             <button
                                                 onClick={clearFile}
@@ -455,7 +623,7 @@ export const CreateCampaign: React.FC = () => {
                                             >
                                                 <X className="w-4 h-4" />
                                             </button>
-                                            <p className="text-xs text-center mt-2 text-gray-500">{file.name}</p>
+                                            <p className="text-xs text-center mt-2 text-gray-500">{file?.name || 'Mídia Atual'}</p>
                                         </div>
                                     ) : (
                                         <div className="text-center">
@@ -474,7 +642,7 @@ export const CreateCampaign: React.FC = () => {
                     {/* 3. Schedule & Throttling */}
                     <section className="bg-white dark:bg-card-dark rounded-xl p-6 border border-border-light dark:border-border-dark shadow-sm">
                         <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-primary text-black flex items-center justify-center text-xs font-bold">3</div>
+                            <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold">3</div>
                             Agendamento e Limites
                         </h2>
 
@@ -483,7 +651,7 @@ export const CreateCampaign: React.FC = () => {
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div
                                     onClick={() => setCampaignType('instant')}
-                                    className={`cursor-pointer rounded-xl border p-4 transition-all ${campaignType === 'instant' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border-light dark:border-border-dark hover:border-gray-300 dark:hover:border-gray-600'}`}
+                                    className={`cursor-pointer rounded-xl border p-4 transition-all ${campaignType === 'instant' ? 'border-primary bg-primary/5 ring-1 ring-primary dark:bg-primary/20 dark:border-blue-500' : 'border-border-light dark:border-border-dark hover:border-gray-300 dark:hover:border-gray-600'}`}
                                 >
                                     <div className="flex items-center justify-between mb-2">
                                         <span className="font-bold text-sm text-gray-900 dark:text-white">Envio Imediato</span>
@@ -496,7 +664,7 @@ export const CreateCampaign: React.FC = () => {
 
                                 <div
                                     onClick={() => setCampaignType('scheduled')}
-                                    className={`cursor-pointer rounded-xl border p-4 transition-all ${campaignType === 'scheduled' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border-light dark:border-border-dark hover:border-gray-300 dark:hover:border-gray-600'}`}
+                                    className={`cursor-pointer rounded-xl border p-4 transition-all ${campaignType === 'scheduled' ? 'border-primary bg-primary/5 ring-1 ring-primary dark:bg-primary/20 dark:border-blue-500' : 'border-border-light dark:border-border-dark hover:border-gray-300 dark:hover:border-gray-600'}`}
                                 >
                                     <div className="flex items-center justify-between mb-2">
                                         <span className="font-bold text-sm text-gray-900 dark:text-white">Agendar</span>
@@ -509,7 +677,7 @@ export const CreateCampaign: React.FC = () => {
 
                                 <div
                                     onClick={() => setCampaignType('recurring')}
-                                    className={`cursor-pointer rounded-xl border p-4 transition-all ${campaignType === 'recurring' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border-light dark:border-border-dark hover:border-gray-300 dark:hover:border-gray-600'}`}
+                                    className={`cursor-pointer rounded-xl border p-4 transition-all ${campaignType === 'recurring' ? 'border-primary bg-primary/5 ring-1 ring-primary dark:bg-primary/20 dark:border-blue-500' : 'border-border-light dark:border-border-dark hover:border-gray-300 dark:hover:border-gray-600'}`}
                                 >
                                     <div className="flex items-center justify-between mb-2">
                                         <span className="font-bold text-sm text-gray-900 dark:text-white">Recorrente</span>
@@ -529,7 +697,7 @@ export const CreateCampaign: React.FC = () => {
                                         type="datetime-local"
                                         value={scheduleTime}
                                         onChange={(e) => setScheduleTime(e.target.value)}
-                                        className="w-full bg-gray-50 dark:bg-input-dark border border-border-light dark:border-border-dark rounded-lg p-3 text-sm focus:ring-2 focus:ring-primary outline-none"
+                                        className="w-full bg-gray-50 dark:bg-input-dark border border-border-light dark:border-border-dark rounded-lg p-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
                                     />
                                 </div>
                             )}
@@ -546,8 +714,8 @@ export const CreateCampaign: React.FC = () => {
                                                     onClick={() => toggleRecurrenceDay(index)}
                                                     className={`w-10 h-10 rounded-lg font-bold text-sm transition-colors
                                             ${recurrenceDays.includes(index)
-                                                            ? 'bg-primary text-black shadow-md'
-                                                            : 'bg-gray-100 dark:bg-muted-dark text-gray-500 hover:bg-gray-200 dark:hover:bg-input-dark'
+                                                            ? 'bg-primary text-white shadow-md'
+                                                            : 'bg-gray-100 dark:bg-muted-dark text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-input-dark'
                                                         }`}
                                                 >
                                                     {day}
@@ -564,7 +732,7 @@ export const CreateCampaign: React.FC = () => {
                                                         type="time"
                                                         value={time}
                                                         onChange={(e) => handleRecurrenceTimeChange(index, e.target.value)}
-                                                        className="flex-1 bg-gray-50 dark:bg-input-dark border border-border-light dark:border-border-dark rounded-lg p-3 text-sm focus:ring-2 focus:ring-primary outline-none"
+                                                        className="flex-1 bg-gray-50 dark:bg-input-dark border border-border-light dark:border-border-dark rounded-lg p-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
                                                     />
                                                     {recurrenceTimes.length > 1 && (
                                                         <button
@@ -599,7 +767,7 @@ export const CreateCampaign: React.FC = () => {
                                     min="1"
                                     value={dailyLimit}
                                     onChange={(e) => setDailyLimit(e.target.value ? parseInt(e.target.value) : '')}
-                                    className="w-full bg-gray-50 dark:bg-input-dark border border-border-light dark:border-border-dark rounded-lg p-3 text-sm focus:ring-2 focus:ring-primary outline-none"
+                                    className="w-full bg-gray-50 dark:bg-input-dark border border-border-light dark:border-border-dark rounded-lg p-3 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary outline-none"
                                     placeholder="Ex: 1000"
                                 />
                             </div>
@@ -665,12 +833,12 @@ export const CreateCampaign: React.FC = () => {
                                         <div className="absolute -right-2 top-0 w-0 h-0 border-t-[10px] border-t-[#d9fdd3] dark:border-t-[#005c4b] border-r-[10px] border-r-transparent"></div>
 
                                         {/* Media Preview */}
-                                        {file && (
+                                        {(file || mediaUrl) && provider === 'unofficial' && (
                                             <div className="mb-1 rounded-lg overflow-hidden bg-black/10">
                                                 {messageType === 'image' ? (
-                                                    <img src={URL.createObjectURL(file)} alt="Preview" className="w-full h-auto object-cover max-h-48" />
+                                                    <img src={file ? URL.createObjectURL(file) : mediaUrl} alt="Preview" className="w-full h-auto object-cover max-h-48" />
                                                 ) : (
-                                                    <video src={URL.createObjectURL(file)} className="w-full h-auto max-h-48" controls />
+                                                    <video src={file ? URL.createObjectURL(file) : mediaUrl} className="w-full h-auto max-h-48" controls />
                                                 )}
                                             </div>
                                         )}
@@ -696,7 +864,7 @@ export const CreateCampaign: React.FC = () => {
                                     </div>
 
                                     {/* Variation Indicator */}
-                                    {messageVariations.length > 0 && (
+                                    {messageVariations.length > 0 && provider === 'unofficial' && (
                                         <div className="flex justify-center mt-6">
                                             <span className="bg-black/40 text-white text-[10px] px-3 py-1 rounded-full backdrop-blur-sm border border-white/10">
                                                 Variação {previewIndex === 0 ? 'A' : String.fromCharCode(65 + previewIndex)}
@@ -735,7 +903,7 @@ export const CreateCampaign: React.FC = () => {
                     </button>
                     <button
                         onClick={handleCreateCampaign}
-                        className="px-6 py-2.5 rounded-xl font-bold bg-primary text-black hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
+                        className="px-6 py-2.5 rounded-xl font-bold bg-primary text-white hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
                     >
                         {id ? 'Salvar Alterações' : 'Criar Campanha'}
                     </button>

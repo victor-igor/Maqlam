@@ -210,10 +210,10 @@ export const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, u
                         <button
                             type="submit"
                             disabled={loading}
-                            className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-black hover:bg-primary-hover transition-colors font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-white hover:bg-primary-hover transition-colors font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {loading ? (
-                                <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                             ) : (
                                 <>
                                     <Save className="w-5 h-5" />

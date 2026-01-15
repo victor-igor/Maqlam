@@ -152,7 +152,7 @@ export const UserManagement = () => {
 
                 <button
                     onClick={openNewUserModal}
-                    className="flex items-center justify-center gap-2 bg-primary text-black px-5 py-2.5 rounded-xl font-bold hover:bg-primary/90 transition-all shadow-sm whitespace-nowrap text-sm"
+                    className="flex items-center justify-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl font-bold hover:bg-primary/90 transition-all shadow-sm whitespace-nowrap text-sm"
                 >
                     <UserPlus className="h-5 w-5" />
                     Novo Usuário

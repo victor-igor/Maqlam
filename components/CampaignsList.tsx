@@ -12,12 +12,14 @@ import {
     Search,
     Edit2,
     Pause,
-    Play
+    Play,
+    Settings
 } from 'lucide-react';
 import { listCampaigns, deleteCampaign, updateCampaignStatus, Campaign } from '../lib/campaigns';
 import { useToast } from '../contexts/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import { DeleteConfirmationModal } from './DeleteConfirmationModal';
+import { CampaignSettingsModal } from './CampaignSettingsModal';
 
 type TimeRange = 'today' | '7days' | '30days' | 'custom';
 
@@ -37,6 +39,9 @@ export const CampaignsList: React.FC = () => {
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [campaignToDelete, setCampaignToDelete] = useState<string | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+
+    // --- Settings Modal State ---
+    const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
     useEffect(() => {
         loadCampaigns();
@@ -136,7 +141,7 @@ export const CampaignsList: React.FC = () => {
     const getButtonStyle = (range: TimeRange) => {
         const isActive = timeRange === range;
         return isActive
-            ? "text-xs font-bold px-3 py-1.5 rounded-md bg-primary text-black shadow-sm transition-all"
+            ? "text-xs font-bold px-3 py-1.5 rounded-md bg-primary text-white shadow-sm transition-all"
             : "text-xs font-medium px-3 py-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-muted-dark transition-colors";
     };
 
@@ -179,8 +184,16 @@ export const CampaignsList: React.FC = () => {
                     </div>
 
                     <button
+                        onClick={() => setSettingsModalOpen(true)}
+                        className="p-2.5 bg-white dark:bg-card-dark text-gray-600 dark:text-gray-300 border border-border-light dark:border-border-dark rounded-xl hover:bg-gray-50 dark:hover:bg-muted-dark transition-all shadow-sm"
+                        title="Configurações"
+                    >
+                        <Settings className="w-5 h-5" />
+                    </button>
+
+                    <button
                         onClick={() => navigate('/campaigns/new')}
-                        className="flex items-center justify-center gap-2 bg-primary text-black px-5 py-2.5 rounded-xl font-bold hover:bg-primary/90 transition-all shadow-[0_0_15px_rgba(0,255,255,0.3)] whitespace-nowrap text-sm"
+                        className="flex items-center justify-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl font-bold hover:bg-primary/90 transition-all shadow-[0_0_15px_rgba(0,255,255,0.3)] whitespace-nowrap text-sm"
                     >
                         <Plus className="w-5 h-5" />
                         Nova Campanha
@@ -289,6 +302,11 @@ export const CampaignsList: React.FC = () => {
                 message="Tem certeza que deseja excluir esta campanha? Esta ação não pode ser desfeita e todos os dados relacionados (métricas, logs) serão perdidos."
                 isDeleting={isDeleting}
             />
-        </div >
+
+            <CampaignSettingsModal
+                isOpen={settingsModalOpen}
+                onClose={() => setSettingsModalOpen(false)}
+            />
+        </div>
     );
 };

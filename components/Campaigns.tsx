@@ -299,7 +299,7 @@ export const Campaigns: React.FC = () => {
     const getButtonStyle = (range: TimeRange) => {
         const isActive = timeRange === range;
         return isActive
-            ? "text-xs font-bold px-3 py-1.5 rounded-md bg-primary text-black shadow-sm transition-all"
+            ? "text-xs font-bold px-3 py-1.5 rounded-md bg-primary text-white shadow-sm transition-all"
             : "text-xs font-medium px-3 py-1.5 rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-muted-dark transition-colors";
     };
 
@@ -549,7 +549,7 @@ export const Campaigns: React.FC = () => {
 
                         <button
                             onClick={() => setViewMode('create')}
-                            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary text-black px-5 py-2 rounded-xl font-bold hover:bg-primary/90 transition-all shadow-[0_0_15px_rgba(0,255,255,0.3)] whitespace-nowrap"
+                            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary text-white px-5 py-2 rounded-xl font-bold hover:bg-primary/90 transition-all shadow-[0_0_15px_rgba(0,255,255,0.3)] whitespace-nowrap"
                         >
                             <Plus className="w-5 h-5" />
                             Nova Campanha
@@ -651,7 +651,7 @@ export const Campaigns: React.FC = () => {
                     {/* 1. Campaign Details */}
                     <section className="bg-white dark:bg-card-dark rounded-xl p-6 border border-border-light dark:border-border-dark shadow-sm">
                         <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-primary text-black flex items-center justify-center text-xs font-bold">1</div>
+                            <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold">1</div>
                             Detalhes da Campanha
                         </h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -688,7 +688,7 @@ export const Campaigns: React.FC = () => {
                     {/* 2. Content Composer */}
                     <section className="bg-white dark:bg-card-dark rounded-xl p-6 border border-border-light dark:border-border-dark shadow-sm">
                         <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-primary text-black flex items-center justify-center text-xs font-bold">2</div>
+                            <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold">2</div>
                             Conteúdo da Mensagem
                         </h2>
 
@@ -819,7 +819,7 @@ export const Campaigns: React.FC = () => {
                     {/* 3. Scheduling & Recurrence & Throttling */}
                     <section className="bg-white dark:bg-card-dark rounded-xl p-6 border border-border-light dark:border-border-dark shadow-sm">
                         <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-primary text-black flex items-center justify-center text-xs font-bold">3</div>
+                            <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold">3</div>
                             Agendamento e Segurança
                         </h2>
 
@@ -879,7 +879,7 @@ export const Campaigns: React.FC = () => {
                                                 onClick={() => toggleRecurrenceDay(index)}
                                                 className={`w-10 h-10 rounded-full font-bold text-sm transition-colors
                                         ${recurrenceDays.includes(index)
-                                                        ? 'bg-primary text-black'
+                                                        ? 'bg-primary text-white'
                                                         : 'bg-gray-100 dark:bg-muted-dark text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700'
                                                     }`}
                                             >
@@ -1034,7 +1034,7 @@ export const Campaigns: React.FC = () => {
                             </div>
                             <button
                                 onClick={handleCreateCampaign}
-                                className="w-full mt-6 bg-primary text-black py-3 rounded-lg font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
+                                className="w-full mt-6 bg-primary text-white py-3 rounded-lg font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
                             >
                                 {campaignType === 'instant' ? 'Enviar Campanha' : 'Agendar Campanha'}
                             </button>

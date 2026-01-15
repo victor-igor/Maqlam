@@ -13,7 +13,8 @@ export interface AudienceFilter {
     value?: string; // Tag name or CSV file URL
 }
 
-export type MessageType = 'text' | 'image' | 'video';
+export type MessageType = 'text' | 'image' | 'video' | 'template';
+export type CampaignProvider = 'official' | 'unofficial';
 
 export interface Campaign {
     id: string;
@@ -30,7 +31,100 @@ export interface Campaign {
     media_url?: string;
     daily_limit?: number;
     message_variations?: string[];
+    // Hybrid / Official Support
+    provider: CampaignProvider;
+    template_name?: string;
+    template_language?: string;
+    template_text?: string;
 }
+
+export interface WhatsAppTemplate {
+    name: string;
+    status: string;
+    language: string;
+    category: string;
+    components: {
+        type: 'HEADER' | 'BODY' | 'FOOTER' | 'BUTTONS';
+        format?: 'TEXT' | 'IMAGE' | 'VIDEO' | 'DOCUMENT';
+        text?: string;
+        buttons?: any[];
+        example?: any;
+    }[];
+}
+
+export interface CampaignSettings {
+    meta_access_token?: string;
+    meta_account_id?: string;
+    gateway_url?: string;
+    gateway_api_key?: string;
+    unofficial_instance_name?: string;
+}
+
+// --- Settings Management ---
+
+export async function getCampaignSettings(): Promise<CampaignSettings> {
+    const { data, error } = await supabase
+        .from('integration_settings')
+        .select('config')
+        .eq('service_name', 'campaign_settings')
+        .maybeSingle();
+
+    if (error) {
+        console.error('Error fetching settings:', error);
+        return {};
+    }
+    return data?.config || {};
+}
+
+export async function saveCampaignSettings(settings: CampaignSettings) {
+    const { error } = await supabase
+        .from('integration_settings')
+        .upsert({
+            service_name: 'campaign_settings',
+            config: settings,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'service_name' });
+
+    if (error) throw error;
+}
+
+// --- Template Management ---
+
+export async function listMessageTemplates(): Promise<WhatsAppTemplate[]> {
+    try {
+        const settings = await getCampaignSettings();
+        const token = settings.meta_access_token;
+        const accountId = settings.meta_account_id;
+
+        if (!token || !accountId) {
+            console.warn('Meta credentials not configured.');
+            return [];
+        }
+
+        const response = await fetch(
+            `https://graph.facebook.com/v21.0/${accountId}/message_templates?fields=name,status,language,category,components&limit=50`,
+            {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            }
+        );
+
+        if (!response.ok) {
+            const error = await response.json();
+            console.error('Meta API Error:', error);
+            return [];
+        }
+
+        const data = await response.json();
+        return data.data.filter((t: any) => t.status === 'APPROVED');
+    } catch (error) {
+        console.error('Error listing templates:', error);
+        return [];
+    }
+}
+
+// --- Campaign CRUD ---
 
 export async function createCampaign(campaign: Omit<Campaign, 'id' | 'created_at' | 'status' | 'created_by'>) {
     const { data: { user } } = await supabase.auth.getUser();
@@ -50,7 +144,11 @@ export async function createCampaign(campaign: Omit<Campaign, 'id' | 'created_at
                 media_url: campaign.media_url,
                 daily_limit: campaign.daily_limit,
                 message_variations: campaign.message_variations,
-                status: 'pending', // Default status for new campaigns
+                provider: campaign.provider || 'unofficial',
+                template_name: campaign.template_name,
+                template_language: campaign.template_language,
+                template_text: campaign.template_text,
+                status: campaign.type === 'recurring' ? 'active' : 'pending',
                 created_by: user.id
             }
         ])
@@ -94,26 +192,47 @@ export async function getCampaignStats(campaignId: string, startDate?: string, e
         if (!error) metrics = data;
     }
 
-    // 2. Fetch detailed logs for the list view and hourly chart
-    let query = supabase
-        .from('campaign_logs')
-        .select('*')
-        .eq('campaign_id', campaignId)
-        .order('created_at', { ascending: false });
+    // 2. Fetch detailed logs using recursive pagination to get ALL records
+    let allLogs: any[] = [];
+    let page = 0;
+    const pageSize = 1000;
+    let hasMore = true;
 
-    if (startDate) {
-        query = query.gte('created_at', startDate);
+    while (hasMore) {
+        let query = supabase
+            .from('campaign_logs')
+            .select('*')
+            .eq('campaign_id', campaignId)
+            .order('created_at', { ascending: false });
+
+        if (startDate) {
+            query = query.gte('created_at', startDate);
+        }
+        if (endDate) {
+            const endDateTime = new Date(endDate);
+            endDateTime.setHours(23, 59, 59, 999);
+            query = query.lte('created_at', endDateTime.toISOString());
+        }
+
+        const { data, error } = await query.range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+            allLogs = [...allLogs, ...data];
+            if (data.length < pageSize) {
+                hasMore = false;
+            }
+        } else {
+            hasMore = false;
+        }
+        page++;
+
+        // Safety break to prevent infinite loops
+        if (page > 100) break;
     }
-    if (endDate) {
-        // Add time to end date to include the full day
-        const endDateTime = new Date(endDate);
-        endDateTime.setHours(23, 59, 59, 999);
-        query = query.lte('created_at', endDateTime.toISOString());
-    }
 
-    const { data: logs, error: logsError } = await query;
-
-    if (logsError) throw logsError;
+    const logs = allLogs;
 
     // Calculate metrics from logs (always calculate if filtering, or fallback if metrics table is empty)
     // If we have metrics and no filter, we could use them, but calculating from logs ensures consistency

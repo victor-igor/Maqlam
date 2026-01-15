@@ -10,7 +10,8 @@ import {
   LogOut,
   Megaphone,
   Diamond,
-  UserCog
+  UserCog,
+  Landmark
 } from 'lucide-react';
 import { usePermissions } from '../hooks/usePermissions';
 import { useAuth } from '../contexts/AuthContext';
@@ -33,6 +34,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, closeMob
     { id: '/', label: 'Dashboard', icon: Sparkles },
     { id: '/contacts', label: 'Contatos', icon: Users },
     { id: '/campaigns', label: 'Campanhas', icon: Megaphone },
+    { id: '/financial', label: 'Financeiro', icon: Landmark },
     ...(isAdminOrGestor ? [{ id: '/users', label: 'Usuários', icon: UserCog }] : []),
     { id: '/settings', label: 'Configurações', icon: Settings },
   ];
@@ -70,49 +72,40 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, closeMob
       </button>
 
       {/* Logo Area */}
-      <div className={`p-6 flex items-center ${isCollapsed ? 'md:justify-center' : ''} h-20`}>
+      <div className={`p-6 flex items-center ${isCollapsed ? 'md:justify-center' : ''} h-24`}>
         {/* Desktop Logo Logic */}
         <div className={`hidden md:block transition-all duration-300`}>
           {isCollapsed ? (
             // Minimized Logo: Icon Only
-            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center border border-primary/20">
-              <Diamond className="w-5 h-5 text-primary" strokeWidth={2.5} />
+            <div className="w-10 h-10 flex items-center justify-center">
+              <img src="/assets/images/logo-icon-light.png" alt="Logo" className="w-full h-full object-contain dark:hidden" />
+              <img src="/assets/images/logo-icon-dark.png" alt="Logo" className="w-full h-full object-contain hidden dark:block" />
             </div>
           ) : (
-            // Expanded Logo: Icon + Typography
-            <div className="flex items-center gap-3 animate-in fade-in duration-300">
-              <div className="w-9 h-9 bg-primary/10 rounded-xl flex items-center justify-center border border-primary/20 flex-shrink-0">
-                <Diamond className="w-5 h-5 text-primary" strokeWidth={2.5} />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-lg font-bold text-gray-900 dark:text-white leading-none tracking-tight">CAMPOS</span>
-                <span className="text-[10px] text-primary font-bold tracking-[0.3em] leading-none mt-1.5 uppercase">Joias</span>
-              </div>
+            // Expanded Logo: Full Image
+            <div className="w-40 animate-in fade-in duration-300">
+              <img src="/assets/images/logo-full-light.png" alt="Logo" className="w-full h-auto object-contain dark:hidden" />
+              <img src="/assets/images/logo-full-dark.png" alt="Logo" className="w-full h-auto object-contain hidden dark:block" />
             </div>
           )}
         </div>
 
         {/* Mobile Always Shows Full Logo */}
-        <div className="md:hidden flex items-center gap-3">
-          <div className="w-9 h-9 bg-primary/10 rounded-xl flex items-center justify-center border border-primary/20 flex-shrink-0">
-            <Diamond className="w-5 h-5 text-primary" strokeWidth={2.5} />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-lg font-bold text-gray-900 dark:text-white leading-none tracking-tight">CAMPOS</span>
-            <span className="text-[10px] text-primary font-bold tracking-[0.3em] leading-none mt-1.5 uppercase">Joias</span>
-          </div>
+        <div className="md:hidden w-32">
+          <img src="/assets/images/logo-full-light.png" alt="Logo" className="w-full h-auto object-contain dark:hidden" />
+          <img src="/assets/images/logo-full-dark.png" alt="Logo" className="w-full h-auto object-contain hidden dark:block" />
         </div>
       </div>
 
       {/* Status Indicator */}
       <div className={`px-6 py-2 ${isCollapsed ? 'md:flex md:justify-center md:px-0' : ''}`}>
         <div className={`
-          flex items-center space-x-2 text-xs text-green-600 dark:text-green-400 font-bold bg-green-50 dark:bg-green-900/20 py-1.5 rounded-full transition-all duration-300
+          flex items-center space-x-2 text-xs text-accent font-bold bg-accent/10 py-1.5 rounded-full transition-all duration-300
           ${isCollapsed ? 'md:px-2 md:justify-center md:w-8 md:h-8' : 'px-3 w-fit'}
         `}>
           <span className="relative flex h-2 w-2 flex-shrink-0">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
           </span>
           <span className={`whitespace-nowrap ${isCollapsed ? 'md:hidden' : ''}`}>SYSTEM ONLINE</span>
         </div>
@@ -159,12 +152,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, closeMob
                 w-full flex items-center px-4 py-3 rounded-lg font-semibold transition-all duration-200
                 ${isCollapsed ? 'md:justify-center md:px-2' : 'space-x-3'}
                 ${isActive
-                  ? 'bg-primary/10 dark:bg-primary/10 text-primary dark:text-primary'
+                  ? 'bg-secondary/10 dark:bg-secondary/10 text-secondary dark:text-secondary'
                   : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-muted-dark hover:text-gray-900 dark:hover:text-white'
                 }
               `}
             >
-              <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-primary' : ''}`} />
+              <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-secondary' : ''}`} />
               <span className={`whitespace-nowrap ${isCollapsed ? 'md:hidden' : ''}`}>{item.label}</span>
             </button>
           );
@@ -174,7 +167,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen = false, closeMob
       {/* User Footer */}
       <div className={`p-4 border-t border-border-light dark:border-border-dark transition-all duration-300 ${isCollapsed ? 'md:flex md:flex-col md:items-center md:gap-4' : ''}`}>
         <div className={`flex items-center w-full ${isCollapsed ? 'md:justify-center' : 'gap-3'}`}>
-          <div className="w-8 h-8 flex-shrink-0 rounded-full bg-gradient-to-tr from-primary to-primary-hover border border-primary/20 flex items-center justify-center text-black font-bold text-xs">
+          <div className="w-8 h-8 flex-shrink-0 rounded-full bg-gradient-to-tr from-primary to-primary-hover border border-primary/20 flex items-center justify-center text-white font-bold text-xs">
             {userProfile?.nome?.charAt(0).toUpperCase() || 'U'}
           </div>
           <div className={`flex-1 overflow-hidden ${isCollapsed ? 'md:hidden' : ''}`}>

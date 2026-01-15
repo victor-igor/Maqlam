@@ -40,12 +40,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             {/* Header / Logo */}
             <div className="mb-10 flex flex-col items-center text-center">
               <div className="flex flex-col items-center gap-5 mb-2 group">
-                <div className="w-20 h-20 bg-primary/10 rounded-2xl flex items-center justify-center border border-primary/20 shadow-[0_0_30px_rgba(197,160,89,0.15)] group-hover:scale-105 transition-transform duration-500">
-                  <Diamond className="w-10 h-10 text-primary drop-shadow-[0_0_10px_rgba(197,160,89,0.5)]" strokeWidth={1.5} />
-                </div>
-                <div className="flex flex-col items-center">
-                  <h1 className="text-4xl font-bold text-[#EDEDED] leading-none tracking-tight">CAMPOS</h1>
-                  <span className="text-sm text-primary font-bold tracking-[0.4em] leading-none mt-2 uppercase pl-1">Joias</span>
+                <div className="w-56 h-auto group-hover:scale-105 transition-transform duration-500">
+                  <img src="/assets/images/logo-full-dark.png" alt="Campos Joias" className="w-full h-auto drop-shadow-lg" />
                 </div>
               </div>
               <p className="mt-4 text-base text-gray-400">
@@ -56,7 +52,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             {/* Form */}
             <form onSubmit={handleSubmit} className="w-full space-y-5">
               <label className="flex flex-col w-full">
-                <p className="text-[#EDEDED] text-sm font-medium leading-normal pb-2 ml-1">Email</p>
+                <p className="text-gray-900 dark:text-[#EDEDED] text-sm font-medium leading-normal pb-2 ml-1">Email</p>
                 <div className="relative flex w-full flex-1 items-center">
                   <div className="absolute left-4 z-10 text-gray-500">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
@@ -65,7 +61,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     </svg>
                   </div>
                   <input
-                    className="w-full rounded-xl text-white focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-border-dark bg-input-dark h-12 placeholder:text-gray-600 pl-11 pr-4 text-base font-normal transition-all"
+                    className="w-full rounded-xl text-gray-900 dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-border-light dark:border-border-dark bg-input-light dark:bg-input-dark h-12 placeholder:text-gray-500 pl-11 pr-4 text-base font-normal transition-all"
                     placeholder="Digite seu email"
                     type="email"
                     value={email}
@@ -76,7 +72,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               </label>
 
               <label className="flex flex-col w-full">
-                <p className="text-[#EDEDED] text-sm font-medium leading-normal pb-2 ml-1">Senha</p>
+                <p className="text-gray-900 dark:text-[#EDEDED] text-sm font-medium leading-normal pb-2 ml-1">Senha</p>
                 <div className="relative flex w-full flex-1 items-center">
                   <div className="absolute left-4 z-10 text-gray-500">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
@@ -84,7 +80,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     </svg>
                   </div>
                   <input
-                    className="w-full rounded-xl text-white focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-border-dark bg-input-dark h-12 placeholder:text-gray-600 pl-11 pr-12 text-base font-normal transition-all"
+                    className="w-full rounded-xl text-gray-900 dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-border-light dark:border-border-dark bg-input-light dark:bg-input-dark h-12 placeholder:text-gray-500 pl-11 pr-12 text-base font-normal transition-all"
                     placeholder="Digite sua senha"
                     type={showPassword ? "text" : "password"}
                     value={password}
@@ -108,7 +104,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full cursor-pointer items-center justify-center overflow-hidden rounded-xl h-12 px-5 bg-primary text-black text-base font-bold tracking-wide hover:bg-primary-hover hover:scale-[1.01] active:scale-[0.99] transition-all shadow-lg shadow-primary/10 disabled:opacity-70 disabled:cursor-not-allowed"
+                  className="w-full cursor-pointer items-center justify-center overflow-hidden rounded-xl h-12 px-5 bg-gradient-to-r from-primary to-secondary text-white text-base font-bold tracking-wide hover:opacity-90 hover:scale-[1.01] active:scale-[0.99] transition-all shadow-lg shadow-secondary/30 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                   {loading ? 'ENTRANDO...' : 'ENTRAR'}
                 </button>
@@ -127,8 +123,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               <svg className="absolute bottom-0 left-0 w-[200%] h-auto -translate-x-1/4 animate-[wave_15s_linear_infinite]" style={{ transformOrigin: 'bottom' }} viewBox="0 0 1440 320" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                   <linearGradient id="wave-gradient-1" x1="50%" x2="50%" y1="0%" y2="100%">
-                    <stop offset="0%" stopColor="#C5A059" stopOpacity="0.2"></stop>
-                    <stop offset="100%" stopColor="#C5A059" stopOpacity="0"></stop>
+                    <stop offset="0%" stopColor="#0E0069" stopOpacity="0.2"></stop>
+                    <stop offset="100%" stopColor="#0E0069" stopOpacity="0"></stop>
                   </linearGradient>
                 </defs>
                 <path d="M0,224L48,213.3C96,203,192,181,288,186.7C384,192,480,224,576,218.7C672,213,768,171,864,144C960,117,1056,107,1152,117.3C1248,128,1344,160,1392,176L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z" fill="url(#wave-gradient-1)"></path>

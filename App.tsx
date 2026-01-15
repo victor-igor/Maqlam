@@ -7,11 +7,18 @@ import { ContactsList } from './components/ContactsList';
 import { ContactDetails } from './components/ContactDetails';
 import { AddContactModal } from './components/AddContactModal';
 import { Settings } from './components/Settings';
+import { SettingsProfile } from './components/SettingsProfile';
+import { InstancesManager } from './components/InstancesManager';
+import { BlacklistSettings } from './components/BlacklistSettings';
 import { Login } from './components/Login';
 import { CampaignsList } from './components/CampaignsList';
 import { CreateCampaign } from './components/CreateCampaign';
 import { CampaignReport } from './components/CampaignReport';
 import { UserManagement } from './components/UserManagement';
+import { Financial } from './components/Financial';
+import { FinancialDashboard } from './components/FinancialDashboard';
+import { FinancialImportPage } from './components/FinancialImportPage';
+import { FinancialManualEntry } from './components/FinancialManualEntry';
 import { Plus, Menu } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
@@ -92,6 +99,13 @@ const Layout: React.FC = () => {
       };
     }
 
+    if (path.startsWith('/financial')) {
+      // Financial page has its own detailed header, so we can return null or a minimal one.
+      // The provided design includes a header INSIDE the layout.
+      // So we might want to return NULL here to avoid double headers.
+      return null;
+    }
+
     return {
       category: 'APP',
       title: 'Campos Joias AI',
@@ -152,7 +166,7 @@ const Layout: React.FC = () => {
               {location.pathname === '/contacts' && (
                 <button
                   onClick={() => setIsAddContactOpen(true)}
-                  className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-black px-4 py-2.5 rounded-lg font-bold transition-colors shadow-sm text-sm"
+                  className="flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover text-white px-4 py-2.5 rounded-lg font-bold transition-colors shadow-sm text-sm"
                 >
                   <Plus className="w-4 h-4" />
                   <span className="hidden sm:inline">Novo Contato</span>
@@ -185,8 +199,21 @@ const Layout: React.FC = () => {
             <Route path="/campaigns/new" element={<CreateCampaign />} />
             <Route path="/campaigns/edit/:id" element={<CreateCampaign />} />
             <Route path="/campaigns/:id" element={<CampaignReport />} />
-            <Route path="/settings" element={<Settings />} />
+            <Route path="/settings" element={<Settings />}>
+              <Route index element={<Navigate to="profile" replace />} />
+              <Route path="profile" element={<SettingsProfile />} />
+              <Route path="instances" element={<InstancesManager />} />
+              <Route path="blacklist" element={<BlacklistSettings />} />
+            </Route>
             <Route path="/users" element={<UserManagement />} />
+            <Route path="/financial" element={<Financial />}>
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<FinancialDashboard />} />
+              <Route path="new" element={<FinancialManualEntry />} />
+              <Route path="import" element={<FinancialImportPage />} />
+              <Route path="import/history" element={<FinancialImportPage />} />
+              <Route path="import/result/:id" element={<FinancialImportPage />} />
+            </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
